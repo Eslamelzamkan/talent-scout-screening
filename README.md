@@ -305,25 +305,6 @@ docker run --rm -p 8000:8000 --env-file .env talent-scout-api
 
 ---
 
-## Troubleshooting
-
-### `401 Not authenticated` on `/run` or `/sessions`
-
-- Ensure you logged in and copied `access_token`
-- Ensure Streamlit **API Bearer Token** is set
-
-### `503 Database unavailable`
-
-- Verify PostgreSQL is running
-- Verify `DATABASE_URL` points to the correct host, port, DB, user, password
-- Run `alembic upgrade head`
-
-### Mermaid diagram render issues on GitHub
-
-- Keep node labels quoted when they contain `/` (for example: `ROUTES["/api/v1 routes"]`)
-
----
-
 ## License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE).
