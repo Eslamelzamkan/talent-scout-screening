@@ -1,0 +1,19 @@
+skill_aliases:
+  redis:
+    - redis
+  mongodb:
+    - mongodb
+    - mongo db
+    - mongo
+  graphql:
+    - graphql
+  prometheus:
+    - prometheus
+  grafana:
+    - grafana
+  kubeflow:
+    - kubeflow
+  prefect:
+    - prefect
+  dvc:
+    - dvc

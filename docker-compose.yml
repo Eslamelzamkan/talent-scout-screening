@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: always
+    container_name: talent_scout_pg
+    environment:
+      POSTGRES_DB: talent_scout
+      POSTGRES_USER: talent_admin
+      POSTGRES_PASSWORD: talent_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - talent_scout_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U talent_admin -d talent_scout"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  talent_scout_pgdata:

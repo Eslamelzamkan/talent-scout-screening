@@ -1,0 +1,8 @@
+experience_cap: 20
+experience_weight: 0.15
+minimum_score: 0
+role_profile: custom
+semantic_weight: 0.6
+shortlist_threshold: 75
+skills_weight: 0.25
+use_role_experience_fit: true

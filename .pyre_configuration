@@ -1,0 +1,16 @@
+{
+    "site_package_search_strategy": "pep561",
+    "source_directories": [
+        "."
+    ],
+    "search_path": [
+        "C:/Users/eslam/anaconda3/lib/site-packages"
+    ],
+    "exclude": [
+        ".*/fine tuning demo/.*",
+        ".*/__pycache__/.*",
+        ".*/ui/.*",
+        ".*/ui\\\\.*",
+        ".*streamlit_app\\.py"
+    ]
+}

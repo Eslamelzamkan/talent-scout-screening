@@ -1,0 +1,37 @@
+# Core ML / NLP
+torch>=2.1.0
+sentence-transformers>=2.2.0
+numpy>=1.24.0
+spacy>=3.7.0
+# After install, run: python -m spacy download en_core_web_lg
+
+# API
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.0.0
+slowapi>=0.1.9
+python-jose[cryptography]>=3.3.0
+bcrypt>=4.0.1
+
+# Database
+sqlalchemy>=2.0.0
+psycopg[binary]>=3.1.0
+# Note: psycopg2-binary removed; DATABASE_URL uses psycopg3 (postgresql+psycopg://)
+
+# Document parsing
+pdfplumber>=0.11.0
+python-docx>=1.1.0
+
+# UI
+streamlit>=1.35.0
+
+# Utilities
+python-dotenv>=1.0.0
+groq>=0.9.0
+pyyaml>=6.0
+requests>=2.32.0
+
+# Dev / tooling
+alembic>=1.13.0
+pytest>=8.0.0
+httpx>=0.27.0

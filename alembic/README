@@ -1,0 +1,9 @@
+Single-database configuration for Alembic.
+
+Quick start:
+
+1. Ensure DATABASE_URL is set (or available in .env).
+2. Create a new migration:
+   alembic revision --autogenerate -m "describe change"
+3. Apply migrations:
+   alembic upgrade head
