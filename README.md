@@ -1,81 +1,86 @@
 # Talent Scout Screening
 
-An end-to-end resume screening platform with:
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-API-009688)](https://fastapi.tiangolo.com/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-UI-FF4B4B)](https://streamlit.io/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-- `FastAPI` backend for ranking and session history APIs
-- `Streamlit` UI for recruiter workflows
-- `PostgreSQL` persistence for sessions, candidates, auth, and audits
-- two-stage candidate evaluation pipeline (semantic ranking + structured analysis)
-- JWT auth, request limits, rate limiting, and CI tests
+Talent Scout is an AI-assisted resume screening platform that ranks candidates against a job description, explains scoring signals, and stores screening history for review.
 
-## Why this project
+## What This Project Includes
 
-Talent Scout is designed for practical recruiter operations:
+- FastAPI backend (`api/`) for screening, history, auth, and health endpoints
+- Streamlit app (`ui/`) for recruiter workflows and candidate comparison
+- PostgreSQL persistence (`db/`) for users, sessions, candidates, and audit events
+- Two-stage candidate evaluation pipeline (`core/`):
+  - Stage 1 semantic ranking (SentenceTransformers)
+  - Stage 2 structured recruiter analysis (optional Groq polishing)
+- Security and reliability controls:
+  - JWT-protected screening/history endpoints
+  - Rate limiting on `/api/v1/run`
+  - Request body and input-size guards
+- Alembic migrations (`alembic/`)
+- Automated test suite (`tests/`) + GitHub Actions CI (`.github/workflows/ci.yml`)
 
-- rank many resumes against a job description quickly
-- explain *why* a candidate ranks where they do
-- store screening sessions for later review
-- compare candidates side-by-side in the UI
+Fine-tuning experiments are intentionally not part of this repo and will be published separately.
 
 ---
 
-## Architecture Overview
+## Architecture
 
-### High-level Components
+### High-Level Components
 
 ```mermaid
 flowchart LR
-    UI[Streamlit UI] -->|HTTP + Bearer Token| API[FastAPI API]
+    UI["Streamlit UI"] -->|"HTTP + Bearer Token"| API["FastAPI API"]
 
-    API --> AUTH[JWT Auth]
-    API --> LIMITS[Rate + Body Limits]
-    API --> ROUTES[/api/v1 routes]
+    API --> AUTH["JWT Auth"]
+    API --> LIMITS["Rate + Request Limits"]
+    API --> ROUTES["/api/v1 routes"]
 
-    ROUTES --> PIPE[Pipeline Orchestrator]
-    PIPE --> STAGE1[Stage 1: Semantic Ranker<br/>SentenceTransformer]
-    PIPE --> SKILLS[Skill Extractor]
-    PIPE --> EXP[Experience Parser]
-    PIPE --> ENT[Entity Extractor]
-    PIPE --> STAGE2[Stage 2: Structured Analysis]
-    STAGE2 -. optional .-> GROQ[(Groq API)]
-    STAGE2 -. optional .-> GH[(GitHub API)]
+    ROUTES --> PIPE["Pipeline Orchestrator"]
+    PIPE --> STAGE1["Stage 1: Semantic Ranking"]
+    PIPE --> SKILLS["Skill Extraction"]
+    PIPE --> EXP["Experience Parsing"]
+    PIPE --> ENT["Entity Extraction"]
+    PIPE --> STAGE2["Stage 2: Structured Analysis"]
+    STAGE2 -. optional .-> GROQ["Groq API"]
+    STAGE2 -. optional .-> GITHUB["GitHub API"]
+    PIPE --> SCORE["Final Weighted Scoring"]
 
-    PIPE --> SCORE[Weighted Scoring]
-    ROUTES --> DB[(PostgreSQL)]
+    ROUTES --> DB["PostgreSQL"]
 ```
 
-### `/run` Request Flow
+### `/api/v1/run` Flow
 
 ```mermaid
 sequenceDiagram
-    participant U as Streamlit User
+    participant U as User
     participant S as Streamlit UI
-    participant A as FastAPI /api/v1/run
+    participant A as FastAPI
     participant P as Pipeline
     participant D as PostgreSQL
 
     U->>S: Submit JD + resumes
     S->>A: POST /api/v1/run (Bearer token)
-    A->>A: Validate auth + body limits + schema
+    A->>A: Auth + schema + body/rate checks
     A->>P: run_pipeline(...)
-    P->>P: Stage 1 semantic ranking
-    P->>P: Skills + experience + entities
-    P->>P: Stage 2 analysis + final score
+    P->>P: Stage 1 + extraction + Stage 2 + scoring
     P->>D: Persist session/candidates (if DB available)
     P-->>A: session_id + ranked results
     A-->>S: JSON response
-    S-->>U: Ranked cards + comparison + export
+    S-->>U: Ranked candidates, comparisons, exports
 ```
 
-### Core Data Model
+### Data Model
 
 ```mermaid
 erDiagram
     USERS ||--o{ SCREENING_SESSIONS : creates
     SCREENING_SESSIONS ||--o{ CANDIDATES : contains
-    MODEL_VERSIONS ||--o{ SCREENING_SESSIONS : tracks
-    USERS ||--o{ AUDIT_EVENTS : emits
+    MODEL_VERSIONS ||--o{ SCREENING_SESSIONS : references
     USERS ||--o{ BENCHMARK_RUNS : owns
+    USERS ||--o{ AUDIT_EVENTS : emits
 ```
 
 ---
@@ -84,22 +89,20 @@ erDiagram
 
 ```text
 .
-├── api/                    # FastAPI app, routes, auth, deps, schemas
-├── core/                   # Ranking, extraction, scoring, orchestration
-├── db/                     # SQLAlchemy models + SQL schema
-├── ui/                     # Streamlit application
-├── config/                 # scoring + skill alias configs
-├── alembic/                # DB migrations
-├── tests/                  # pytest suite
-├── .github/workflows/ci.yml
-├── Dockerfile
-└── docker-compose.yml      # PostgreSQL service
+|- api/                      # FastAPI app, auth, routes, schemas
+|- core/                     # Ranking, extraction, analysis, scoring
+|- db/                       # SQLAlchemy models + schema.sql
+|- ui/                       # Streamlit application
+|- config/                   # scoring.yaml + skills_aliases.yml
+|- alembic/                  # Database migrations
+|- tests/                    # pytest suite
+|- .github/workflows/ci.yml  # CI pipeline
+|- docker-compose.yml        # Local PostgreSQL service
+|- Dockerfile                # API container image
+`- README.md
 ```
 
 ---
-
-Fine-tuning experiments are intentionally excluded from this repository for now
-and will be published in a separate repository.
 
 ## Tech Stack
 
@@ -109,21 +112,18 @@ and will be published in a separate repository.
 - PostgreSQL + SQLAlchemy + Alembic
 - SentenceTransformers / PyTorch
 - spaCy (`en_core_web_lg`) for NER
-- pytest + TestClient for automated tests
+- pytest + FastAPI TestClient
 
 ---
 
-## Quick Start (Local Dev)
+## Quick Start (Local Development)
 
 ### 1) Create virtual environment and install dependencies
-
-```bash
-python -m venv .venv
-```
 
 Windows PowerShell:
 
 ```powershell
+python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
@@ -131,39 +131,45 @@ pip install -r requirements.txt
 Linux/macOS:
 
 ```bash
+python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
 ### 2) Configure environment
 
+Create `.env` from template:
+
 ```bash
 cp .env.example .env
 ```
 
-Set real values in `.env`:
+Set required values:
 
-- `DATABASE_URL` (required)
-- `JWT_SECRET_KEY` (required, strong random secret)
-- `GROQ_API_KEY` (optional but recommended for enhanced stage-2 phrasing)
+- `DATABASE_URL`
+- `JWT_SECRET_KEY`
+
+Useful optional values:
+
+- `GROQ_API_KEY`
+- `FINETUNED_MODEL_DIR`
+- `ALLOWED_ORIGINS`
+- `RUN_RATE_LIMIT`
+- `MAX_REQUEST_BODY_BYTES`
+- `MAX_JOB_DESCRIPTION_CHARS`
+- `MAX_RESUME_TEXT_CHARS`
+- `MAX_RESUMES_PER_REQUEST`
+- `SKILL_ALIASES_PATH`
 
 ### 3) Start PostgreSQL
 
-Option A (recommended): Docker
+If using Docker Compose:
 
 ```bash
 docker compose up -d postgres
 ```
 
-Default docker DB endpoint from this compose file:
-
-- host: `127.0.0.1`
-- port: `5432`
-- db: `talent_scout`
-- user: `talent_admin`
-- password: `talent_password`
-
-### 4) Run migrations
+### 4) Run database migrations
 
 ```bash
 alembic upgrade head
@@ -193,32 +199,32 @@ curl -X POST http://localhost:8000/api/v1/login \
   -d "{\"email\":\"recruiter@example.com\",\"password\":\"Passw0rd!123\"}"
 ```
 
-Copy `access_token` from login response.
+Copy `access_token`.
 
-### 7) Start UI
+### 7) Start Streamlit UI
 
 ```bash
 streamlit run ui/streamlit_app.py
 ```
 
-Open `http://localhost:8501`, paste your token into **API Bearer Token** in the sidebar, then run screenings.
+Open `http://localhost:8501` and paste your token in **API Bearer Token**.
 
 ---
 
-## API Reference (Core Endpoints)
+## API Reference
 
 Base URL: `http://localhost:8000`
 
 | Endpoint | Method | Auth | Description |
 |---|---|---|---|
-| `/health` | GET | No | Liveness check |
-| `/api/v1/register` | POST | No | Register user and receive JWT |
-| `/api/v1/login` | POST | No | Login and receive JWT |
+| `/health` | GET | No | Service liveness |
+| `/api/v1/register` | POST | No | Create user and return token |
+| `/api/v1/login` | POST | No | Login and return token |
 | `/api/v1/run` | POST | Yes | Run full ranking pipeline |
 | `/api/v1/sessions` | GET | Yes | List prior sessions |
-| `/api/v1/sessions/{session_id}` | GET | Yes | Fetch candidates in one session |
+| `/api/v1/sessions/{session_id}` | GET | Yes | List candidates for a session |
 
-### Sample `/run` payload
+### Sample `/api/v1/run` Request
 
 ```json
 {
@@ -234,84 +240,37 @@ Base URL: `http://localhost:8000`
 }
 ```
 
----
-
-## Security, Limits, and Validation
-
-- JWT protection on `/run` and session endpoints
-- rate limiting on `/run` (default: `10/minute`, configurable via `RUN_RATE_LIMIT`)
-- request body size enforcement (`MAX_REQUEST_BODY_BYTES`)
-- schema-level limits for job description and resume text lengths
-- pipeline-level defensive validation for oversized or invalid inputs
-
----
-
-## Configuration
-
-Important environment variables (`.env`):
-
-| Variable | Purpose |
-|---|---|
-| `DATABASE_URL` | SQLAlchemy DB connection string (required) |
-| `JWT_SECRET_KEY` | JWT signing key (required) |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | JWT expiration time |
-| `RUN_RATE_LIMIT` | Rate limit for `/run` |
-| `MAX_REQUEST_BODY_BYTES` | Hard cap for request payload size |
-| `MAX_JOB_DESCRIPTION_CHARS` | Max JD length |
-| `MAX_RESUME_TEXT_CHARS` | Max resume length |
-| `MAX_RESUMES_PER_REQUEST` | Max resumes per call |
-| `SKILL_ALIASES_PATH` | Path to custom skill taxonomy file |
-| `GROQ_API_KEY` | Enables Groq polishing in stage-2 |
-| `FINETUNED_MODEL_DIR` | Local fine-tuned embedding model directory |
-
-### Skill Taxonomy Customization
-
-Talent Scout supports extended/override skill aliases from YAML/JSON.
-
-Default file: `config/skills_aliases.yml`
-
-Example:
-
-```yaml
-skill_aliases:
-  rust:
-    - rust
-    - rustlang
-  kubeflow:
-    - kubeflow
-```
-
-Set path with:
-
-```env
-SKILL_ALIASES_PATH=config/skills_aliases.yml
-```
-
----
-
-## Migrations
-
-Create migration:
+### Authenticated Request Example
 
 ```bash
-alembic revision --autogenerate -m "describe change"
-```
-
-Apply migrations:
-
-```bash
-alembic upgrade head
-```
-
-Show migration history:
-
-```bash
-alembic history
+curl -X GET "http://localhost:8000/api/v1/sessions?limit=20" \
+  -H "Authorization: Bearer <access_token>"
 ```
 
 ---
 
-## Testing and Quality
+## Security and Guardrails
+
+- JWT protection for `/api/v1/run` and session endpoints
+- Rate limiting on `/api/v1/run` (`RUN_RATE_LIMIT`, default `10/minute`)
+- Body-size enforcement for `/api/v1/run` (`MAX_REQUEST_BODY_BYTES`)
+- Input caps for job description/resume text and resume count
+
+---
+
+## Configuration Notes
+
+- Scoring defaults are in `config/scoring.yaml`.
+- Skill aliases can be extended via `config/skills_aliases.yml` and `SKILL_ALIASES_PATH`.
+- If spaCy model is missing, entity extraction degrades gracefully:
+
+```bash
+python -m spacy download en_core_web_lg
+```
+
+---
+
+## Testing
 
 Run all tests:
 
@@ -319,16 +278,20 @@ Run all tests:
 pytest -q
 ```
 
-CI workflow:
+---
 
-- file: `.github/workflows/ci.yml`
-- runs tests on push and pull requests
+## CI
+
+GitHub Actions workflow:
+
+- `.github/workflows/ci.yml`
+- Runs tests on push and pull request
 
 ---
 
 ## Docker
 
-Build API image:
+Build image:
 
 ```bash
 docker build -t talent-scout-api .
@@ -340,30 +303,24 @@ Run API container:
 docker run --rm -p 8000:8000 --env-file .env talent-scout-api
 ```
 
-If your DB is outside the container network, set `DATABASE_URL` host accordingly (commonly `host.docker.internal` on Docker Desktop).
-
 ---
 
 ## Troubleshooting
 
-### `401 Unauthorized` on `/run` or `/sessions`
+### `401 Not authenticated` on `/run` or `/sessions`
 
-- ensure you logged in and copied `access_token`
-- ensure Streamlit sidebar contains `API Bearer Token`
+- Ensure you logged in and copied `access_token`
+- Ensure Streamlit **API Bearer Token** is set
 
-### `503 Database unavailable` on sessions
+### `503 Database unavailable`
 
-- verify PostgreSQL is running
-- verify `DATABASE_URL` credentials/host/port
-- run `alembic upgrade head`
+- Verify PostgreSQL is running
+- Verify `DATABASE_URL` points to the correct host, port, DB, user, password
+- Run `alembic upgrade head`
 
-### spaCy model warning (`en_core_web_lg` not found)
+### Mermaid diagram render issues on GitHub
 
-Install model:
-
-```bash
-python -m spacy download en_core_web_lg
-```
+- Keep node labels quoted when they contain `/` (for example: `ROUTES["/api/v1 routes"]`)
 
 ---
 
