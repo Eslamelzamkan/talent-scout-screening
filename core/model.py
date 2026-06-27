@@ -85,7 +85,9 @@ def _sigmoid(x: float) -> float:
 
 
 def _tokenize(text: str) -> List[str]:
-    return [t.lower() for t in _TOKEN_RE.findall((text or "").lower())]
+    # Input is already lower-cased and _TOKEN_RE only matches [a-z0-9+#.-],
+    # so findall() results need no further normalization.
+    return _TOKEN_RE.findall((text or "").lower())
 
 
 def _extract_focus_terms(text: str, max_terms: int = 48) -> List[str]:
