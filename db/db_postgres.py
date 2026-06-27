@@ -14,9 +14,9 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship,
 
 load_dotenv()
 
+# Optional: the engine/pipeline runs fine without a database (persistence is skipped).
+# We only require DATABASE_URL when a DB connection is actually requested (get_engine()).
 DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL environment variable is required")
 
 # -----------------------------
 # Base
@@ -144,6 +144,8 @@ def get_engine():
     """Lazy engine factory — only connects when first called."""
     global _engine
     if _engine is None:
+        if not DATABASE_URL:
+            raise RuntimeError("DATABASE_URL environment variable is required for database features")
         _engine = create_engine(DATABASE_URL, pool_pre_ping=True)
     return _engine
 

@@ -222,14 +222,19 @@ class TestComputeFinalScore:
 # ---- Shortlisting ----
 
 class TestShouldShortlist:
+    # should_shortlist compares the final score against a *calibrated* threshold,
+    # so raw config thresholds map to a higher effective bar on the 0-100 scale.
     def test_above_threshold(self):
-        assert should_shortlist({"final_score": 80}, {"shortlist_threshold": 75}) is True
+        assert should_shortlist({"final_score": 99}, {"shortlist_threshold": 75}) is True
 
     def test_below_threshold(self):
         assert should_shortlist({"final_score": 60}, {"shortlist_threshold": 75}) is False
 
     def test_at_threshold(self):
-        assert should_shortlist({"final_score": 75}, {"shortlist_threshold": 75}) is True
+        from core.scoring import _calibrate_final_score
+        cal = _calibrate_final_score(75)
+        assert should_shortlist({"final_score": cal}, {"shortlist_threshold": 75}) is True
+        assert should_shortlist({"final_score": cal - 1}, {"shortlist_threshold": 75}) is False
 
     def test_missing_score_defaults_to_zero(self):
         assert should_shortlist({}, {"shortlist_threshold": 75}) is False

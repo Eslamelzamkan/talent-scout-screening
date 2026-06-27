@@ -104,13 +104,13 @@ class TestMatchSkills:
     def test_full_match(self, extractor):
         candidate = extractor.extract("Expert in Python and PyTorch")
         result = extractor.match_skills(["python", "pytorch"], candidate)
-        assert result.match_rate == 100.0
+        assert result.match_rate >= 80.0  # all required present; required-weighted (~88)
         assert len(result.missing) == 0
 
     def test_partial_match(self, extractor):
         candidate = extractor.extract("Expert in Python")
         result = extractor.match_skills(["python", "pytorch", "docker"], candidate)
-        assert 30 <= result.match_rate <= 40  # 1/3 ≈ 33.33%
+        assert 20 <= result.match_rate <= 35  # 1 of 3 required, required-weighted (~29)
         assert "python" in result.present
         assert "pytorch" in result.missing
         assert "docker" in result.missing
@@ -124,7 +124,7 @@ class TestMatchSkills:
     def test_empty_requirements(self, extractor):
         candidate = extractor.extract("Expert in Python")
         result = extractor.match_skills([], candidate)
-        assert result.match_rate == 100.0
+        assert result.match_rate == 0.0  # no required skills -> no positive signal
 
     def test_result_types(self, extractor):
         candidate = extractor.extract("Python and Docker")

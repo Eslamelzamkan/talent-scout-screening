@@ -66,6 +66,12 @@ def test_run_pipeline_smoke_with_repo(monkeypatch):
         "extract_entities",
         lambda text: {"candidate_name": "Candidate", "recent_companies": ["Acme"]},
     )
+    # New pipeline steps: no LLM JD parsing, and isolate the dense score from the
+    # lexical blend so the stage-1 score flows through unchanged for this smoke test.
+    monkeypatch.setattr(pipeline, "parse_jd_with_llm", lambda job_title, job_description: {"source": "none"})
+    monkeypatch.setattr(pipeline, "lexical_alignment_score", lambda *a, **k: 0.0)
+    monkeypatch.setattr(pipeline, "_EMBED_WEIGHT", 1.0)
+    monkeypatch.setattr(pipeline, "_LEXICAL_WEIGHT", 0.0)
 
     repo = FakeRepo()
     result = pipeline.run_pipeline(

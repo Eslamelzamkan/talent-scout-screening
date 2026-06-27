@@ -1,23 +1,8 @@
 """
-skills_extractor.py
+skill_extractor.py — Deterministic regex-based skill extraction.
 
-Grad-level skill extraction that is:
-- deterministic (no LLM required)
-- fast (single pass regex matching)
-- auditable (keeps evidence: surface forms + counts)
-
-This extractor is intentionally conservative to avoid false positives
-(e.g., matching "go" in normal text, or "R" in a sentence).
-
-Usage
------
-from skills_extractor import SkillExtractor
-
-extractor = SkillExtractor()
-resume_skills = extractor.extract(resume_text)
-jd_skills = extractor.extract(jd_text)
-
-match = extractor.match_skills(jd_required=["python","pytorch"], candidate=resume_skills)
+Ported from talent-scout-screening/core/skill_extractor.py.
+Import path changed: core.utils → core.utils
 """
 
 from __future__ import annotations
@@ -38,7 +23,6 @@ from core.utils import normalize_for_matching
 
 logger = logging.getLogger(__name__)
 
-# Allows users to define extra aliases from disk.
 SKILL_ALIASES_ENV_VAR = "SKILL_ALIASES_PATH"
 DEFAULT_SKILL_ALIASES_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -46,7 +30,6 @@ DEFAULT_SKILL_ALIASES_PATH = os.path.join(
     "skills_aliases.yml",
 )
 
-# Canonical -> aliases (lowercase expected)
 DEFAULT_SKILL_ALIASES: Dict[str, List[str]] = {
     # Languages
     "python": ["python"],
@@ -55,17 +38,33 @@ DEFAULT_SKILL_ALIASES: Dict[str, List[str]] = {
     "c#": ["c#", "c sharp"],
     "javascript": ["javascript", "js"],
     "typescript": ["typescript", "ts"],
-    "go": ["golang", "go language"],  # avoid plain "go" (too many false positives)
+    "go": ["golang", "go language"],
     "sql": ["sql", "postgresql", "mysql", "sqlite"],
+    "r": ["r language", "r programming"],
+    "scala": ["scala"],
     # ML / DS
+    "machine-learning": ["machine learning", "applied machine learning", "ml models"],
+    "deep-learning": ["deep learning", "neural networks"],
+    "data-analysis": ["data analysis", "analytical modeling", "data analytics"],
+    "statistics": ["statistics", "statistical analysis", "statistical modeling"],
     "pytorch": ["pytorch", "torch"],
-    "tensorflow": ["tensorflow", "tf"],  # "tf" is noisy; handled by boundary rules
+    "tensorflow": ["tensorflow", "tf"],
     "scikit-learn": ["scikit-learn", "sklearn", "scikit learn"],
+    "xgboost": ["xgboost"],
+    "lightgbm": ["lightgbm"],
+    "catboost": ["catboost"],
     "numpy": ["numpy"],
     "pandas": ["pandas"],
+    "matplotlib": ["matplotlib"],
+    "seaborn": ["seaborn"],
+    "plotly": ["plotly"],
     "nlp": ["nlp", "natural language processing"],
+    "computer-vision": ["computer vision"],
     "transformers": ["transformers", "huggingface transformers", "hf transformers"],
     "sentence-transformers": ["sentence-transformers", "sentence transformers", "sbert"],
+    "llm": ["llm", "large language models", "large language model"],
+    "langchain": ["langchain"],
+    "openai-api": ["openai api", "openai"],
     # Dev / Infra
     "docker": ["docker"],
     "kubernetes": ["kubernetes", "k8s"],
@@ -74,18 +73,25 @@ DEFAULT_SKILL_ALIASES: Dict[str, List[str]] = {
     "aws": ["aws", "amazon web services"],
     "gcp": ["gcp", "google cloud"],
     "azure": ["azure"],
+    "rest-api": ["rest api", "restful api", "rest services"],
+    "microservices": ["microservices", "microservice architecture"],
     # Data / pipelines
     "etl": ["etl", "data pipeline", "data pipelines"],
     "airflow": ["airflow", "apache airflow"],
     "spark": ["spark", "apache spark"],
     "pyspark": ["pyspark"],
+    "hadoop": ["hadoop", "apache hadoop"],
     "kafka": ["kafka", "apache kafka"],
     "databricks": ["databricks"],
     "snowflake": ["snowflake"],
+    "bigquery": ["bigquery", "google bigquery"],
+    "redshift": ["redshift", "amazon redshift"],
     # Backend / frameworks
     "fastapi": ["fastapi"],
     "flask": ["flask"],
     "django": ["django"],
+    "express": ["express", "express.js"],
+    "nestjs": ["nestjs", "nest.js"],
     "sqlalchemy": ["sqlalchemy"],
     # Ops / tooling
     "terraform": ["terraform"],
@@ -96,31 +102,52 @@ DEFAULT_SKILL_ALIASES: Dict[str, List[str]] = {
     # BI / analytics
     "tableau": ["tableau"],
     "power-bi": ["power bi", "powerbi"],
-    # Frontend (common in full-stack resumes)
+    "looker": ["looker", "looker studio"],
+    # Frontend
     "react": ["react", "reactjs"],
+    "next.js": ["next.js", "nextjs"],
+    "vue": ["vue", "vue.js"],
+    "angular": ["angular"],
+    "tailwind": ["tailwind", "tailwind css"],
     "node.js": ["node.js", "nodejs"],
 }
 
-# Terms that should never be treated as standalone skills (noise)
 DEFAULT_BLACKLIST: Set[str] = {
-    "in",
-    "at",
-    "on",
-    "and",
-    "or",
-    "to",
-    "for",
-    "with",
-    "the",
-    "a",
-    "an",
-    "as",
-    "of",
-    "is",
-    "are",
-    "was",
-    "were",
-    "be",
+    "in", "at", "on", "and", "or", "to", "for", "with", "the",
+    "a", "an", "as", "of", "is", "are", "was", "were", "be",
+}
+
+JD_REQUIRED_HEADING_RE = re.compile(
+    r"^\s*(requirements?|required qualifications?|minimum qualifications?|must[-\s]*have|what you'll need)\s*:?\s*$",
+    flags=re.IGNORECASE,
+)
+
+JD_PREFERRED_HEADING_RE = re.compile(
+    r"^\s*(preferred qualifications?|nice to have|good to have|bonus skills?|plus skills?)\s*:?\s*$",
+    flags=re.IGNORECASE,
+)
+
+JD_REQUIRED_LINE_RE = re.compile(
+    r"\b(required?|must(?:\s+have)?|minimum|need(?:ed)?\s+to\s+have|strong\s+experience|hands[-\s]*on\s+experience)\b",
+    flags=re.IGNORECASE,
+)
+
+JD_PREFERRED_LINE_RE = re.compile(
+    r"\b(preferred|nice\s+to\s+have|good\s+to\s+have|a\s+plus|bonus|optional)\b",
+    flags=re.IGNORECASE,
+)
+
+SKILL_INFERENCE_MAP: Dict[str, Set[str]] = {
+    "machine-learning": {
+        "scikit-learn", "xgboost", "lightgbm", "catboost", "tensorflow",
+        "pytorch", "deep-learning", "nlp", "computer-vision",
+    },
+    "deep-learning": {"tensorflow", "pytorch", "transformers", "computer-vision"},
+    "etl": {"airflow", "spark", "pyspark", "kafka", "databricks", "snowflake"},
+    "data-analysis": {"statistics", "pandas", "sql", "tableau", "power-bi", "looker"},
+    "statistics": {"data-analysis", "machine-learning", "scikit-learn"},
+    "rest-api": {"fastapi", "flask", "django", "express", "nestjs"},
+    "microservices": {"docker", "kubernetes", "rest-api"},
 }
 
 
@@ -169,8 +196,7 @@ def _load_skill_aliases_from_file(path: str) -> Dict[str, List[str]]:
             if path.lower().endswith(".json"):
                 raw = json.load(f)
             else:
-                import yaml  # pyre-ignore[21]
-
+                import yaml  # type: ignore
                 raw = yaml.safe_load(f)
     except Exception as exc:
         logger.warning("Could not load skill aliases from %s: %s", path, exc)
@@ -206,7 +232,6 @@ def _load_skill_aliases_from_file(path: str) -> Dict[str, List[str]]:
 # Data classes
 # -----------------------------
 
-
 @dataclass(frozen=True)
 class SkillHit:
     canonical: str
@@ -217,21 +242,27 @@ class SkillHit:
 @dataclass(frozen=True)
 class SkillMatchResult:
     required: Tuple[str, ...]
+    preferred: Tuple[str, ...]
     present: Tuple[str, ...]
     missing: Tuple[str, ...]
+    preferred_present: Tuple[str, ...]
+    preferred_missing: Tuple[str, ...]
     match_rate: float  # 0..100
     evidence: Dict[str, SkillHit]
+
+
+@dataclass(frozen=True)
+class JobSkillProfile:
+    required: Tuple[str, ...]
+    preferred: Tuple[str, ...]
+    detected: Tuple[str, ...]
 
 
 # -----------------------------
 # Implementation
 # -----------------------------
 
-
 def _escape_alias(alias: str) -> str:
-    """
-    Escape alias for regex and normalize common punctuation.
-    """
     return re.escape(alias.strip().lower())
 
 
@@ -239,15 +270,18 @@ def _is_single_token(alias: str) -> bool:
     return bool(re.fullmatch(r"[a-z0-9\+#\.\-]+", alias.strip().lower()))
 
 
+def _dedupe_keep_order(values: Sequence[str]) -> Tuple[str, ...]:
+    out: List[str] = []
+    seen: Set[str] = set()
+    for v in values:
+        if v in seen:
+            continue
+        seen.add(v)
+        out.append(v)
+    return tuple(out)
+
+
 class SkillExtractor:
-    """
-    Deterministic skill extractor with alias-based matching.
-
-    Notes on precision:
-    - Single-token aliases are matched with word boundaries where possible.
-    - Very short aliases (<=2) are treated carefully to reduce false positives.
-    """
-
     def __init__(
         self,
         skill_aliases: Optional[Dict[str, List[str]]] = None,
@@ -281,10 +315,6 @@ class SkillExtractor:
         self._pattern = self._compile_pattern(self._alias_to_canonical.keys())
 
     def _compile_pattern(self, aliases: Iterable[str]) -> re.Pattern:
-        """
-        Compile one big regex to find all aliases in one pass.
-        Uses careful boundary handling for short/ambiguous aliases.
-        """
         parts = []
         for alias in sorted(set(aliases), key=len, reverse=True):
             if alias in self.blacklist:
@@ -297,29 +327,21 @@ class SkillExtractor:
             esc = _escape_alias(a)
 
             if _is_single_token(a):
-                # word boundary: for tokens with +/# we can't rely on \b
                 if any(ch in a for ch in ["+", "#"]):
-                    # require non-word char around it
                     parts.append(rf"(?<!\w){esc}(?!\w)")
                 else:
                     parts.append(rf"\b{esc}\b")
             else:
-                # phrase: allow flexible whitespace and punctuation between words
-                # replace escaped spaces with \s+
                 esc = esc.replace(r"\ ", r"\s+")
                 parts.append(rf"(?<!\w){esc}(?!\w)")
 
         if not parts:
-            # never happens with defaults, but be safe
             parts = [r"$^"]
 
         big = "|".join(parts)
         return re.compile(big, flags=re.IGNORECASE)
 
     def extract(self, text: str) -> Dict[str, SkillHit]:
-        """
-        Extract skills from text, returning canonical -> SkillHit.
-        """
         norm = normalize_for_matching(text or "")
         if not norm:
             return {}
@@ -331,14 +353,11 @@ class SkillExtractor:
             surface = m.group(0).strip().lower()
             canon = self._alias_to_canonical.get(surface)
 
-            # If surface isn't directly in alias map (because of flexible whitespace),
-            # try to map by collapsing whitespace.
             if canon is None:
                 surface2 = re.sub(r"\s+", " ", surface)
                 canon = self._alias_to_canonical.get(surface2)
 
             if canon is None:
-                # Should be rare; ignore unknown match
                 continue
 
             counts[canon] = counts.get(canon, 0) + 1
@@ -355,60 +374,166 @@ class SkillExtractor:
         return out
 
     def normalize_skill(self, skill: str) -> Optional[str]:
-        """
-        Normalize a user-entered skill (e.g., from UI) to canonical.
-        Returns None if unknown/blacklisted.
-        """
         s = (skill or "").strip().lower()
         if not s or s in self.blacklist:
             return None
-
         if s in self.skill_aliases:
             return s
-
         if s in self._alias_to_canonical:
             return self._alias_to_canonical[s]
-
-        # try small normalizations
         s2 = re.sub(r"\s+", " ", s)
         return self._alias_to_canonical.get(s2)
+
+    def extract_job_profile(self, jd_text: str) -> JobSkillProfile:
+        jd_norm = normalize_for_matching(jd_text or "")
+        if not jd_norm:
+            return JobSkillProfile(required=(), preferred=(), detected=())
+
+        detected_all = tuple(sorted(self.extract(jd_norm).keys()))
+        if not detected_all:
+            return JobSkillProfile(required=(), preferred=(), detected=())
+
+        required_hits: List[str] = []
+        preferred_hits: List[str] = []
+        section_mode: Optional[str] = None
+
+        for raw_line in jd_norm.split("\n"):
+            line = (raw_line or "").strip(" -\t")
+            if not line:
+                continue
+
+            if JD_REQUIRED_HEADING_RE.search(line):
+                section_mode = "required"
+                continue
+            if JD_PREFERRED_HEADING_RE.search(line):
+                section_mode = "preferred"
+                continue
+
+            line_skills = tuple(sorted(self.extract(line).keys()))
+            if not line_skills:
+                continue
+
+            if section_mode == "preferred" or JD_PREFERRED_LINE_RE.search(line):
+                preferred_hits.extend(line_skills)
+                continue
+
+            if section_mode == "required" or JD_REQUIRED_LINE_RE.search(line):
+                required_hits.extend(line_skills)
+                continue
+
+        required = list(_dedupe_keep_order(required_hits))
+        preferred = [s for s in _dedupe_keep_order(preferred_hits) if s not in set(required)]
+
+        if not required:
+            required = list(detected_all)
+            preferred = []
+
+        return JobSkillProfile(
+            required=tuple(required),
+            preferred=tuple(preferred),
+            detected=detected_all,
+        )
+
+    @staticmethod
+    def _presence_strength(hit: SkillHit) -> float:
+        count = max(0, int(hit.count))
+        if count >= 3:
+            return 1.0
+        if count == 2:
+            return 0.95
+        if count == 1:
+            return 0.88
+        return 0.0
+
+    def _skill_match_strength(self, skill: str, candidate: Dict[str, SkillHit]) -> float:
+        direct_hit = candidate.get(skill)
+        if direct_hit is not None:
+            return self._presence_strength(direct_hit)
+
+        related = SKILL_INFERENCE_MAP.get(skill, set())
+        if not related:
+            return 0.0
+
+        related_scores = [self._presence_strength(candidate[r]) for r in related if r in candidate]
+        if not related_scores:
+            return 0.0
+
+        best = max(related_scores)
+        breadth_bonus = 0.03 * min(3, len(related_scores))
+        return min(0.9, 0.55 + (0.30 * best) + breadth_bonus)
 
     def match_skills(
         self,
         jd_required: Sequence[str],
         candidate: Dict[str, SkillHit],
+        jd_preferred: Optional[Sequence[str]] = None,
+        required_weight: float = 0.82,
+        preferred_weight: float = 0.18,
     ) -> SkillMatchResult:
-        """
-        Compute match against a list of required skills.
-        Returns a result with present/missing and match_rate 0..100.
-        """
         req_norm: List[str] = []
         for s in jd_required:
             if (canon := self.normalize_skill(s)):
                 req_norm.append(canon)
 
+        pref_norm: List[str] = []
+        for s in (jd_preferred or []):
+            if (canon := self.normalize_skill(s)):
+                pref_norm.append(canon)
+
         req_set = tuple(sorted(set(req_norm)))
-        if not req_set:
-            # nothing required => full match
+        pref_set = tuple(sorted([s for s in set(pref_norm) if s not in set(req_set)]))
+
+        if not req_set and not pref_set:
+            # No JD skills defined — return 0.0 so the skills component does not
+            # artificially inflate every candidate's score for vague job descriptions.
             present = tuple(sorted(candidate.keys()))
             return SkillMatchResult(
                 required=(),
+                preferred=(),
                 present=present,
                 missing=(),
-                match_rate=100.0,
+                preferred_present=(),
+                preferred_missing=(),
+                match_rate=0.0,
                 evidence=candidate,
             )
 
-        cand_set = set(candidate.keys())
-        present = tuple(sorted([s for s in req_set if s in cand_set]))
-        missing = tuple(sorted([s for s in req_set if s not in cand_set]))
+        req_strengths: Dict[str, float] = {s: self._skill_match_strength(s, candidate) for s in req_set}
+        pref_strengths: Dict[str, float] = {s: self._skill_match_strength(s, candidate) for s in pref_set}
 
-        match_rate = 100.0 * (len(present) / max(1, len(req_set)))
+        present = tuple(sorted([s for s, score in req_strengths.items() if score > 0]))
+        missing = tuple(sorted([s for s, score in req_strengths.items() if score <= 0]))
+        preferred_present = tuple(sorted([s for s, score in pref_strengths.items() if score > 0]))
+        preferred_missing = tuple(sorted([s for s, score in pref_strengths.items() if score <= 0]))
+
+        req_score = 0.0
+        if req_set:
+            req_score = sum(req_strengths.values()) / len(req_set)
+
+        pref_score = 0.0
+        if pref_set:
+            pref_score = sum(pref_strengths.values()) / len(pref_set)
+
+        if req_set and pref_set:
+            r_w = max(0.0, float(required_weight))
+            p_w = max(0.0, float(preferred_weight))
+            total_w = max(1e-6, r_w + p_w)
+            pref_bonus_scale = p_w / total_w
+            req_component = req_score
+            # Preferred skills should improve the score, not punish missing optional skills.
+            match_rate_01 = req_component + ((1.0 - req_component) * pref_bonus_scale * pref_score)
+        elif req_set:
+            match_rate_01 = req_score
+        else:
+            match_rate_01 = pref_score
 
         return SkillMatchResult(
             required=req_set,
+            preferred=pref_set,
             present=present,
             missing=missing,
-            match_rate=float(round(match_rate, 2)),
+            preferred_present=preferred_present,
+            preferred_missing=preferred_missing,
+            match_rate=float(round(100.0 * max(0.0, min(match_rate_01, 1.0)), 2)),
             evidence=candidate,
         )
