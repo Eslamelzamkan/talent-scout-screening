@@ -1,5 +1,6 @@
 # Talent Scout — Résumé Screening Engine
 
+[![CI](https://github.com/Eslamelzamkan/talent-scout-screening/actions/workflows/ci.yml/badge.svg)](https://github.com/Eslamelzamkan/talent-scout-screening/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-API-009688)](https://fastapi.tiangolo.com/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-UI-FF4B4B)](https://streamlit.io/)
@@ -10,9 +11,9 @@ description, shows *why* each candidate scored the way they did, and keeps a hum
 control of every decision. This is the open-sourced screening component of **Talent Scout**, a
 graduation project at New Mansoura University.
 
-> **Live demo of the full platform:** `<add-your-demo-url-here>`
-> The complete product (recruiter dashboards, assessments, AI video interview, the React/Express
-> stack) is a separate private project; **this repository is the standalone screening engine**.
+> **This repository is the standalone screening engine.** The complete Talent Scout platform
+> (recruiter dashboards, assessments, AI video interview, the React/Express stack) is a separate
+> private project.
 
 ---
 
@@ -155,14 +156,14 @@ flowchart LR
 
 ```text
 .
-|- api/                      # FastAPI app, auth, routes, schemas
-|- core/                     # the screening engine: ranking, skills, experience, scoring, JD parse
-|- db/                       # SQLAlchemy models + schema.sql (optional persistence)
-|- ui/                       # Streamlit recruiter app
-|- config/                   # scoring.yaml + skills_aliases.yml
-|- alembic/                  # database migrations
-|- tests/                    # pytest suite (113 tests)
-`- .github/workflows/ci.yml  # CI: tests on push/PR
+├── api/                      # FastAPI app, auth, routes, schemas
+├── core/                     # the screening engine: ranking, skills, experience, scoring, JD parse
+├── db/                       # SQLAlchemy models + schema.sql (optional persistence)
+├── ui/                       # Streamlit recruiter app
+├── config/                   # scoring.yaml + skills_aliases.yml
+├── alembic/                  # database migrations
+├── tests/                    # pytest suite (117 tests)
+└── .github/workflows/ci.yml  # CI: tests on push/PR
 ```
 
 ---
