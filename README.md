@@ -222,13 +222,6 @@ pytest -q
 
 ---
 
-## Team & attribution
-
-Talent Scout was built as a graduation project at the **Faculty of Computer Science & Engineering,
-New Mansoura University (2025–2026)** by **Amr Helmy, Eslam Mohyeldeen, Mahmoud Ibrahem,
-Mahmoud Hosny, Sara Marey, and Youssef Mohamed**, advised by **Dr. Ibrahim Attiya**. This repository
-open-sources the résumé-screening engine; the full platform remains a private project.
-
 ## License
 
 MIT — see [LICENSE](LICENSE).
