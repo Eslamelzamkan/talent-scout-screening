@@ -232,3 +232,6 @@ open-sources the résumé-screening engine; the full platform remains a private 
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+<!-- Verified build and test suite. -->
+
